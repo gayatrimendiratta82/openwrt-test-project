@@ -13,7 +13,12 @@ pipeline {
             steps {
                 sh '''
                     echo "Checking OpenWrt source..."
-                    test -f /home/gayatri/openwrt/Makefile
+
+                    if [ ! -f /home/gayatri/openwrt/Makefile ]; then
+                        echo "ERROR: OpenWrt source not found!"
+                        exit 1
+                    fi
+
                     echo "OpenWrt source found."
                 '''
             }
@@ -31,14 +36,26 @@ pipeline {
             }
         }
 
-        stage('Find IPK') {
+        stage('Find Package') {
             steps {
                 sh '''
-                    echo "Searching for generated IPK..."
+                    echo "Searching for generated package..."
 
-                    find /home/gayatri/openwrt/bin/packages \
-                        -name "*test_project*.ipk" \
-                        -o -name "*testproject*.ipk"
+                    PACKAGE=$(find /home/gayatri/openwrt/bin/packages \
+                        -type f \
+                        -name "*test_project*.apk" \
+                        | head -n 1)
+
+                    if [ -z "$PACKAGE" ]; then
+                        echo "ERROR: Package not found!"
+                        exit 1
+                    fi
+
+                    echo "Package found:"
+                    echo "$PACKAGE"
+
+                    echo "Package details:"
+                    ls -lh "$PACKAGE"
                 '''
             }
         }
@@ -48,13 +65,46 @@ pipeline {
                 sh '''
                     echo "Running basic package test..."
 
-                    find /home/gayatri/openwrt/bin/packages \
-                        -name "*test_project*.ipk" \
-                        -o -name "*testproject*.ipk" | grep .
+                    PACKAGE=$(find /home/gayatri/openwrt/bin/packages \
+                        -type f \
+                        -name "*test_project*.apk" \
+                        | head -n 1)
+
+                    if [ -z "$PACKAGE" ]; then
+                        echo "ERROR: Package not found!"
+                        exit 1
+                    fi
+
+                    echo "Testing package:"
+                    echo "$PACKAGE"
+
+                    if [ ! -f "$PACKAGE" ]; then
+                        echo "ERROR: Package file does not exist!"
+                        exit 1
+                    fi
+
+                    echo "Package exists."
+
+                    echo "Package size:"
+                    ls -lh "$PACKAGE"
+
+                    echo "Package test successful."
                 '''
             }
         }
     }
+
+    post {
+        success {
+            echo '========================================='
+            echo ' OpenWrt Package Build SUCCESSFUL'
+            echo '========================================='
+        }
+
+        failure {
+            echo '========================================='
+            echo ' OpenWrt Package Build FAILED'
+            echo '========================================='
+        }
+    }
 }
-
-
